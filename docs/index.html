@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReferralPrep — Messy Notes In, Clean Clinical CSV Out</title>
+  <style>
+    :root {
+      --navy: #16324f;
+      --blue: #2e6f95;
+      --teal: #1b998b;
+      --coral: #e76f51;
+      --gold: #f4a261;
+      --pale: #e3f0f1;
+      --bg: #f4f8fa;
+      --text: #1d2733;
+      --muted: #5e6b7a;
+      --border: #d2e0e8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+    /* Hero with background image */
+    header {
+      position: relative;
+      color: white;
+      padding: 4rem 1rem 3.5rem;
+      text-align: center;
+      background:
+        linear-gradient(135deg, rgba(22,50,79,0.92) 0%, rgba(46,111,149,0.88) 55%, rgba(27,153,139,0.85) 100%),
+        url("https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1400&q=70");
+      background-size: cover;
+      background-position: center;
+    }
+    header h1 { font-size: 3rem; letter-spacing: -0.5px; margin-bottom: 0.6rem; text-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+    header p.tagline { font-size: 1.25rem; opacity: 0.97; max-width: 640px; margin: 0 auto; text-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+
+    main { max-width: 900px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+    section { margin-bottom: 3.5rem; }
+    h2 { font-size: 1.55rem; color: var(--navy); border-bottom: 3px solid var(--teal); padding-bottom: 0.4rem; margin-bottom: 1.1rem; display: inline-block; }
+    p { margin-bottom: 0.9rem; }
+
+    .lead-img { width: 100%; height: 240px; object-fit: cover; border-radius: 12px; margin: 0.5rem 0 1.5rem; box-shadow: 0 4px 14px rgba(0,0,0,0.12); }
+
+    .callout { background: var(--pale); border-left: 5px solid var(--teal); padding: 1.1rem 1.3rem; border-radius: 6px; margin-bottom: 1.5rem; }
+    .callout p { margin-bottom: 0; font-size: 1.05rem; }
+
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.1rem; margin-top: 1.25rem; }
+    .feature-card { border-radius: 12px; padding: 1.4rem; color: white; box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+    .feature-card .icon { font-size: 2rem; display: block; margin-bottom: 0.5rem; }
+    .feature-card h3 { font-size: 1.05rem; margin-bottom: 0.35rem; }
+    .feature-card p { font-size: 0.9rem; opacity: 0.95; margin-bottom: 0; }
+    .fc-teal { background: linear-gradient(135deg, #1b998b, #57c4b6); }
+    .fc-blue { background: linear-gradient(135deg, #2e6f95, #5ba3c9); }
+    .fc-coral { background: linear-gradient(135deg, #e76f51, #f4a261); }
+    .fc-navy { background: linear-gradient(135deg, #16324f, #2e6f95); }
+
+    pre { background: #1e1e1e; color: #d4d4d4; padding: 1.25rem; border-radius: 8px; overflow-x: auto; font-size: 0.86rem; line-height: 1.5; margin-bottom: 1rem; }
+    code { font-family: "Cascadia Code", "Fira Code", "Courier New", monospace; }
+
+    .demo-wrap { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.6rem; box-shadow: 0 3px 12px rgba(0,0,0,0.07); }
+    .demo-badge { display: inline-block; background: var(--coral); color: white; font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.7rem; border-radius: 20px; letter-spacing: 0.4px; margin-bottom: 0.9rem; }
+    .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 640px) { .demo-grid { grid-template-columns: 1fr; } }
+    .demo-field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.2rem; font-weight: 600; }
+    .demo-field input { width: 100%; padding: 0.55rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; font-family: inherit; }
+    .demo-field input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 2px rgba(27,153,139,0.15); }
+    .demo-btn { background: var(--teal); color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 7px; font-size: 0.98rem; font-weight: 600; cursor: pointer; margin-top: 1.1rem; transition: background 0.15s; }
+    .demo-btn:hover { background: #15827696; background: #158276; }
+    .demo-output { margin-top: 1.3rem; }
+    .demo-output h4 { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .score-bar-track { background: var(--pale); border-radius: 20px; height: 24px; overflow: hidden; margin-bottom: 0.75rem; }
+    .score-bar-fill { background: linear-gradient(90deg, #1b998b, #57c4b6); height: 100%; width: 0; transition: width 0.4s; color: white; font-size: 0.8rem; text-align: right; padding-right: 9px; line-height: 24px; white-space: nowrap; font-weight: 600; }
+    .missing-note { font-size: 0.9rem; margin-bottom: 0.75rem; font-weight: 500; }
+    .csv-out { background: #1e1e1e; color: #9cdcfe; padding: 0.95rem; border-radius: 7px; font-family: "Courier New", monospace; font-size: 0.78rem; overflow-x: auto; white-space: pre; }
+
+    .download-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .download-card { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 1.3rem; text-align: center; transition: transform 0.15s; }
+    .download-card:hover { transform: translateY(-3px); }
+    .download-card .os-icon { font-size: 1.8rem; display: block; margin-bottom: 0.4rem; }
+    .download-card h3 { font-size: 1rem; margin-bottom: 0.3rem; }
+    .download-card p { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.85rem; }
+    .btn { display: inline-block; background: var(--navy); color: white; padding: 0.55rem 1.2rem; border-radius: 6px; text-decoration: none; font-size: 0.88rem; font-weight: 600; transition: background 0.15s; }
+    .btn:hover { background: var(--blue); }
+
+    .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.3rem; margin-top: 1rem; }
+    @media (max-width: 520px) { .pricing-grid { grid-template-columns: 1fr; } }
+    .pricing-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.6rem; }
+    .pricing-card.highlighted { border-color: var(--teal); border-width: 2px; box-shadow: 0 4px 14px rgba(27,153,139,0.15); }
+    .pricing-card .price { font-size: 2.1rem; font-weight: 700; color: var(--teal); margin: 0.5rem 0; }
+    .pricing-card ul { list-style: none; padding: 0; margin-top: 0.75rem; }
+    .pricing-card ul li { padding: 0.32rem 0; font-size: 0.95rem; }
+    .pricing-card ul li::before { content: "\2713  "; color: var(--teal); font-weight: bold; }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 2.5rem 1rem; border-top: 1px solid var(--border); background: white; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>ReferralPrep</h1>
+  <p class="tagline">Messy referral notes in. Clean, complete clinical CSV out. One patient at a time.</p>
+</header>
+
+<main>
+
+  <section>
+    <h2>The problem</h2>
+    <img class="lead-img" src="https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1400&q=70" alt="Clinician reviewing paperwork at a desk" />
+    <p>
+      Referral letters arrive messy and incomplete: a missing duration, no allergy line,
+      medications scrawled as "aspirin OD" instead of a clear dose, and sometimes not even
+      a patient name in a consistent place. Before any of that can become a row in a clinical
+      database or a safe handover, someone cleans it up by hand, note after note.
+    </p>
+    <div class="callout">
+      <p>ReferralPrep does that cleanup for you, and refuses to let a field go missing unnoticed.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it does</h2>
+    <div class="feature-grid">
+      <div class="feature-card fc-teal">
+        <span class="icon">&#129534;</span>
+        <h3>Cleans the text</h3>
+        <p>Trims spacing and expands shorthand: OD becomes once daily, NKDA becomes no known drug allergies.</p>
+      </div>
+      <div class="feature-card fc-coral">
+        <span class="icon">&#9888;</span>
+        <h3>Flags what is missing</h3>
+        <p>Scores each referral for completeness and names any blank required field before it is saved.</p>
+      </div>
+      <div class="feature-card fc-blue">
+        <span class="icon">&#128202;</span>
+        <h3>Builds clean CSV</h3>
+        <p>Every patient becomes one tidy row you can open in Excel or Google Sheets.</p>
+      </div>
+      <div class="feature-card fc-navy">
+        <span class="icon">&#128274;</span>
+        <h3>Stays offline</h3>
+        <p>No cloud, no account, no internet. Patient data never leaves the machine in front of you.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE DEMO -->
+  <section>
+    <h2>Try it now</h2>
+    <p>This is a browser preview of what the command-line tool does. Fill in a few fields and see the cleaned CSV row it would produce.</p>
+    <div class="demo-wrap">
+      <span class="demo-badge">LIVE DEMO &mdash; PREVIEW OF THE CLI</span>
+      <div class="demo-grid">
+        <div class="demo-field"><label>Patient name</label><input id="f0" placeholder="John Smith" /></div>
+        <div class="demo-field"><label>Chief complaint</label><input id="f1" placeholder="chest pain" /></div>
+        <div class="demo-field"><label>Duration</label><input id="f2" placeholder="3 days" /></div>
+        <div class="demo-field"><label>Past medical history</label><input id="f3" placeholder="hypertension, diabetes" /></div>
+        <div class="demo-field"><label>Medications</label><input id="f4" placeholder="aspirin OD, metformin BD" /></div>
+        <div class="demo-field"><label>Allergies</label><input id="f5" placeholder="NKDA" /></div>
+        <div class="demo-field"><label>Exam findings</label><input id="f6" placeholder="BP 150/95" /></div>
+        <div class="demo-field"><label>Tests</label><input id="f7" placeholder="ECG" /></div>
+        <div class="demo-field"><label>Reason for referral</label><input id="f8" placeholder="cardiology assessment" /></div>
+      </div>
+      <button class="demo-btn" onclick="runDemo()">Clean and structure</button>
+
+      <div class="demo-output" id="demoOutput" style="display:none;">
+        <h4>Completeness</h4>
+        <div class="score-bar-track"><div class="score-bar-fill" id="scoreFill">0%</div></div>
+        <div class="missing-note" id="missingNote"></div>
+        <h4>CSV output</h4>
+        <div class="csv-out" id="csvOut"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How the real tool works</h2>
+    <p>The downloadable program runs in your terminal and interviews you for each patient:</p>
+    <pre><code>ReferralPrep
+Turn messy referral notes into a clean, complete clinical CSV.
+
+Patient name: John Smith
+Chief complaint: chest pain
+Duration: 3 days
+Medications: aspirin OD, metformin BD
+Allergies: NKDA
+...
+
+Completeness: 100%
+All required fields present.
+Add this referral to the CSV? [Y/n]: y</code></pre>
+  </section>
+
+  <section>
+    <h2>Download</h2>
+    <p>Native programs for every system. No install, no account, fully offline.</p>
+    <div class="download-grid">
+      <div class="download-card"><span class="os-icon">&#129532;</span><h3>Windows</h3><p>64-bit</p><a class="btn" href="https://github.com/NamazziJosephine/referralprep/releases/latest/download/referralprep-windows-x86_64.exe">Download</a></div>
+      <div class="download-card"><span class="os-icon">&#127822;</span><h3>macOS Apple Silicon</h3><p>M1, M2, M3</p><a class="btn" href="https://github.com/NamazziJosephine/referralprep/releases/latest/download/referralprep-macos-arm64">Download</a></div>
+      <div class="download-card"><span class="os-icon">&#127822;</span><h3>macOS Intel</h3><p>Older Macs</p><a class="btn" href="https://github.com/NamazziJosephine/referralprep/releases/latest/download/referralprep-macos-x86_64">Download</a></div>
+      <div class="download-card"><span class="os-icon">&#128039;</span><h3>Linux</h3><p>64-bit</p><a class="btn" href="https://github.com/NamazziJosephine/referralprep/releases/latest/download/referralprep-linux-x86_64">Download</a></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pricing</h2>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <h3>Free</h3>
+        <div class="price">&euro;0</div>
+        <p>The full tool</p>
+        <ul><li>Unlimited referrals</li><li>Text cleaning and abbreviation expansion</li><li>Completeness checking</li><li>CSV export</li></ul>
+      </div>
+      <div class="pricing-card highlighted">
+        <h3>Clinic</h3>
+        <div class="price">&euro;5 <span style="font-size:1rem;font-weight:400;color:var(--muted);">/month</span></div>
+        <p>For specialties and teams</p>
+        <ul><li>Specialty templates (cardiology, neurology, more)</li><li>Custom required-field checklists</li><li>Custom abbreviation rule packs</li><li>Batch import workflows</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Source code</h2>
+    <p>Open source, built in Rust. <a href="https://github.com/NamazziJosephine/referralprep">View on GitHub</a></p>
+  </section>
+
+</main>
+
+<footer>
+  <p>ReferralPrep &mdash; built for clinical teams and students, by Namazzi Josephine.</p>
+  <p>The live demo above is a browser preview. The downloadable Rust CLI is the full tool. MIT License.</p>
+</footer>
+
+<script>
+  // This browser preview mirrors the cleaning logic in the Rust file lib.rs.
+  // It is a simplified copy for demonstration only; the CLI is the real tool.
+
+  // The shorthand on the left is replaced by the clear wording on the right.
+  var ABBREV = {
+    "od": "once daily", "bd": "twice daily", "tds": "three times daily",
+    "qds": "four times daily", "prn": "as needed",
+    "nkda": "no known drug allergies", "pmh": "past medical history", "hx": "history"
+  };
+  var HEADERS = ["patient_name","chief_complaint","duration","pmh","medications","allergies","exam_findings","tests","reason_for_referral"];
+  var LABELS = ["Patient name","Chief complaint","Duration","Past medical history","Medications","Allergies","Exam findings","Tests","Reason for referral"];
+
+  // Cleans a text field: collapse spacing, then expand any known abbreviations.
+  function cleanText(raw) {
+    var collapsed = raw.split(/\s+/).filter(function(w){ return w.length > 0; }).join(" ");
+    return collapsed.split(" ").map(function(word){
+      var trimmed = word.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return ABBREV[trimmed] ? ABBREV[trimmed] : word;
+    }).join(" ");
+  }
+
+  // Cleans a name: only fix spacing, never change the words.
+  function tidyName(raw) {
+    return raw.split(/\s+/).filter(function(w){ return w.length > 0; }).join(" ");
+  }
+
+  // Wraps a value in quotes if it contains a comma or quote, per CSV rules.
+  function escapeCsv(value) {
+    if (value.indexOf(",") !== -1 || value.indexOf('"') !== -1) {
+      return '"' + value.replace(/"/g, '""') + '"';
+    }
+    return value;
+  }
+
+  // Runs when the button is clicked: clean every field, score it, show the CSV.
+  function runDemo() {
+    var values = [];
+    for (var i = 0; i < 9; i++) {
+      var raw = document.getElementById("f" + i).value;
+      // The first field is the name, which is only tidied, not expanded.
+      values.push(i === 0 ? tidyName(raw) : cleanText(raw));
+    }
+
+    // Find which fields were left blank so we can warn about them.
+    var missing = [];
+    for (var j = 0; j < 9; j++) {
+      if (values[j].trim() === "") { missing.push(LABELS[j]); }
+    }
+    var filled = 9 - missing.length;
+    var score = Math.round((filled * 100) / 9);
+
+    var fill = document.getElementById("scoreFill");
+    fill.style.width = score + "%";
+    fill.textContent = score + "%";
+
+    var note = document.getElementById("missingNote");
+    note.textContent = missing.length === 0 ? "All required fields present." : "Missing: " + missing.join(", ");
+    note.style.color = missing.length === 0 ? "#1b998b" : "#e76f51";
+
+    var row = values.map(escapeCsv).join(",");
+    document.getElementById("csvOut").textContent = HEADERS.join(",") + "\n" + row;
+    document.getElementById("demoOutput").style.display = "block";
+  }
+</script>
+
+</body>
+</html>

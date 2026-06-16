@@ -1,0 +1,20 @@
+[package]
+name = "referralprep"
+version = "0.1.0"
+edition = "2021"
+description = "Turn messy referral notes into a clean, complete clinical CSV, one note at a time"
+license = "MIT"
+
+[[bin]]
+name = "referralprep"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "=4.4.11", features = ["derive"] }
+serde = { version = "1.0.197", features = ["derive"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
