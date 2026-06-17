@@ -1,10 +1,11 @@
 // ReferralPrep entry point
 // Handles all user interaction and file output. No business logic here.
-// The cleaning, CSV building, and completeness checks all live in lib.rs.
+// The cleaning, validation, and CSV building all live in lib.rs.
 
 use clap::Parser;
 use referralprep::{
-    completeness_score, csv_header, missing_fields, validate_output_path, Field, Referral,
+    completeness_score, csv_header, missing_fields, validate_duration, validate_output_path,
+    Field, MedicationDictionary, Referral,
 };
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -14,12 +15,12 @@ use std::path::Path;
 #[derive(Parser, Debug)]
 #[command(
     name = "referralprep",
-    about = "Turn messy referral notes into a clean, complete clinical CSV, one note at a time.",
+    about = "Turn messy referral notes into a clean, complete clinical CSV, one patient at a time.",
     long_about = None,
     version
 )]
 struct Args {
-    // Where to write the CSV. The file is created if missing, appended if present.
+    // Where to write the CSV. Created if missing, appended if it already exists.
     #[arg(long, help = "Output CSV file path (e.g. referrals.csv)")]
     output: Option<String>,
 }
@@ -28,6 +29,11 @@ fn main() {
     let args = Args::parse();
 
     print_welcome();
+
+    // Build the medication dictionary, starting with the built-in shorthands
+    // and then letting the user add any of their own.
+    let mut meds_dict = MedicationDictionary::with_defaults();
+    offer_custom_abbreviations(&mut meds_dict);
 
     let output_path = match args.output {
         Some(p) => match validate_output_path(&p) {
@@ -48,10 +54,10 @@ fn main() {
         println!("{}", "=".repeat(60));
         println!("New referral note");
         println!("{}", "=".repeat(60));
-        println!("Enter each field below. Press Enter to leave a field blank.");
+        println!("Enter each field below. Press Enter to leave a text field blank.");
         println!();
 
-        let referral = collect_referral();
+        let referral = collect_referral(&meds_dict);
         show_preview(&referral);
 
         if confirm("Add this referral to the CSV?") {
@@ -77,7 +83,33 @@ fn print_welcome() {
     println!();
     println!("ReferralPrep");
     println!("Turn messy referral notes into a clean, complete clinical CSV.");
-    println!("You will be asked for each field one at a time. Let us begin.");
+}
+
+// At startup, asks whether the user wants to teach the tool any of their own
+// medication abbreviations, for example "clari" meaning "clarithromycin".
+fn offer_custom_abbreviations(dict: &mut MedicationDictionary) {
+    println!();
+    println!("The tool already knows some drug shorthands (asp, para, met, amox, ibu).");
+    if !confirm("Would you like to add your own medication abbreviations?") {
+        return;
+    }
+    loop {
+        let short = read_line("  Abbreviation (e.g. clari): ");
+        if short.is_empty() {
+            println!("  Skipped (blank abbreviation).");
+        } else {
+            let full = read_line("  Full medication name (e.g. clarithromycin): ");
+            if full.is_empty() {
+                println!("  Skipped (blank full name).");
+            } else {
+                dict.add(&short, &full);
+                println!("  Added: {} means {}.", short.trim(), full.trim());
+            }
+        }
+        if !confirm("  Add another abbreviation?") {
+            break;
+        }
+    }
 }
 
 // Reads one line of input after showing a prompt, returning the trimmed text.
@@ -89,8 +121,7 @@ fn read_line(prompt: &str) -> String {
     input.trim().to_string()
 }
 
-// Asks a yes or no question and returns true for yes.
-// Accepts y, yes, n, no in any capitalisation. Defaults to yes on empty input.
+// Asks a yes or no question. Accepts y, yes, n, no. Defaults to yes on Enter.
 fn confirm(question: &str) -> bool {
     loop {
         let answer = read_line(&format!("{} [Y/n]: ", question)).to_lowercase();
@@ -118,20 +149,46 @@ fn prompt_output_path() -> String {
     }
 }
 
-// Asks the user for all nine fields, one at a time, in column order.
-// We store each answer in an array, then hand it to the library to clean.
-fn collect_referral() -> Referral {
-    let mut values: [String; 9] = Default::default();
-    for (i, field) in Field::all().iter().enumerate() {
-        // Build the question from the field's friendly label, e.g. "Duration: ".
-        let prompt = format!("{}: ", field.prompt_label());
-        values[i] = read_line(&prompt);
+// Asks for the duration and keeps asking until it passes the 1 to 100 guardrail.
+// This is the validation a plain spreadsheet cannot do for you.
+fn prompt_duration() -> u32 {
+    loop {
+        let answer = read_line("Duration in days (1 to 100): ");
+        match validate_duration(&answer) {
+            Ok(days) => return days,
+            Err(message) => println!("  {}", message),
+        }
     }
-    Referral::from_values(&values)
 }
 
-// Shows a cleaned preview of the referral plus its completeness score and any
-// missing fields, so the user can decide whether to save or re-edit.
+// Collects all nine fields from the user, validating the duration and expanding
+// medication abbreviations as it goes.
+fn collect_referral(meds_dict: &MedicationDictionary) -> Referral {
+    let patient_name = read_line("Patient name: ");
+    let chief_complaint = read_line("Chief complaint: ");
+    let duration_days = prompt_duration();
+    let pmh = read_line("Past medical history (PMH): ");
+    let medications = read_line("Medications: ");
+    let allergies = read_line("Allergies: ");
+    let exam_findings = read_line("Exam findings: ");
+    let tests = read_line("Tests: ");
+    let reason = read_line("Reason for referral: ");
+
+    Referral::build(
+        &patient_name,
+        &chief_complaint,
+        duration_days,
+        &pmh,
+        &medications,
+        &allergies,
+        &exam_findings,
+        &tests,
+        &reason,
+        meds_dict,
+    )
+}
+
+// Shows a cleaned preview plus the completeness score and any missing fields.
 fn show_preview(referral: &Referral) {
     println!();
     println!("{}", "-".repeat(60));
@@ -139,8 +196,8 @@ fn show_preview(referral: &Referral) {
     println!("{}", "-".repeat(60));
     for field in Field::all().iter() {
         let value = referral.value_for(*field);
-        let shown = if value.is_empty() { "(blank)" } else { value };
-        println!("  {:<28} {}", format!("{}:", field.prompt_label()), shown);
+        let shown = if value.is_empty() { "(blank)".to_string() } else { value };
+        println!("  {:<32} {}", format!("{}:", field.prompt_label()), shown);
     }
 
     let score = completeness_score(referral);

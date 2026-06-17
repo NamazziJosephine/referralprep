@@ -144,6 +144,32 @@
     </div>
   </section>
 
+  <section>
+    <h2>Why not just use Excel?</h2>
+    <p>
+      A spreadsheet stores whatever you type. It will happily accept 500 days of
+      medication, leave the allergy field blank, and keep "Asp" in one row and
+      "aspirin" in the next. ReferralPrep does what a cell cannot:
+    </p>
+    <div class="feature-grid">
+      <div class="feature-card fc-coral">
+        <span class="icon">&#128683;</span>
+        <h3>It guards your data</h3>
+        <p>Duration must be a whole number from 1 to 100 days. A typo like 500 is refused, not stored.</p>
+      </div>
+      <div class="feature-card fc-teal">
+        <span class="icon">&#128138;</span>
+        <h3>It standardises drugs</h3>
+        <p>Asp becomes aspirin, Met becomes metformin. Teach it your own shorthands too.</p>
+      </div>
+      <div class="feature-card fc-blue">
+        <span class="icon">&#9989;</span>
+        <h3>It checks completeness</h3>
+        <p>Every row is scored and missing fields are named before the note is ever saved.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- LIVE DEMO -->
   <section>
     <h2>Try it now</h2>
@@ -153,7 +179,7 @@
       <div class="demo-grid">
         <div class="demo-field"><label>Patient name</label><input id="f0" placeholder="John Smith" /></div>
         <div class="demo-field"><label>Chief complaint</label><input id="f1" placeholder="chest pain" /></div>
-        <div class="demo-field"><label>Duration</label><input id="f2" placeholder="3 days" /></div>
+        <div class="demo-field"><label>Duration in days (1-100)</label><input id="f2" type="number" min="1" max="100" placeholder="3" /></div>
         <div class="demo-field"><label>Past medical history</label><input id="f3" placeholder="hypertension, diabetes" /></div>
         <div class="demo-field"><label>Medications</label><input id="f4" placeholder="aspirin OD, metformin BD" /></div>
         <div class="demo-field"><label>Allergies</label><input id="f5" placeholder="NKDA" /></div>
@@ -197,7 +223,6 @@ Add this referral to the CSV? [Y/n]: y</code></pre>
     <div class="download-grid">
       <div class="download-card"><span class="os-icon">&#129532;</span><h3>Windows</h3><p>64-bit</p><a class="btn" href="https://github.com/NamazziJosephine/referralprep/releases/latest/download/referralprep-windows-x86_64.exe">Download</a></div>
       <div class="download-card"><span class="os-icon">&#127822;</span><h3>macOS Apple Silicon</h3><p>M1, M2, M3</p><a class="btn" href="https://github.com/NamazziJosephine/referralprep/releases/latest/download/referralprep-macos-arm64">Download</a></div>
-      <div class="download-card"><span class="os-icon">&#127822;</span><h3>macOS Intel</h3><p>Older Macs</p><a class="btn" href="https://github.com/NamazziJosephine/referralprep/releases/latest/download/referralprep-macos-x86_64">Download</a></div>
       <div class="download-card"><span class="os-icon">&#128039;</span><h3>Linux</h3><p>64-bit</p><a class="btn" href="https://github.com/NamazziJosephine/referralprep/releases/latest/download/referralprep-linux-x86_64">Download</a></div>
     </div>
   </section>
@@ -242,6 +267,11 @@ Add this referral to the CSV? [Y/n]: y</code></pre>
     "qds": "four times daily", "prn": "as needed",
     "nkda": "no known drug allergies", "pmh": "past medical history", "hx": "history"
   };
+  // Built-in medication shorthands. The real tool also lets users add their own.
+  var MEDS = {
+    "asp": "aspirin", "para": "paracetamol", "met": "metformin",
+    "amox": "amoxicillin", "ibu": "ibuprofen"
+  };
   var HEADERS = ["patient_name","chief_complaint","duration","pmh","medications","allergies","exam_findings","tests","reason_for_referral"];
   var LABELS = ["Patient name","Chief complaint","Duration","Past medical history","Medications","Allergies","Exam findings","Tests","Reason for referral"];
 
@@ -259,6 +289,14 @@ Add this referral to the CSV? [Y/n]: y</code></pre>
     return raw.split(/\s+/).filter(function(w){ return w.length > 0; }).join(" ");
   }
 
+  // Expands medication shorthands like Asp into aspirin.
+  function expandMeds(text) {
+    return text.split(" ").map(function(word){
+      var key = word.toLowerCase().replace(/[^a-z]/g, "");
+      return MEDS[key] ? MEDS[key] : word;
+    }).join(" ");
+  }
+
   // Wraps a value in quotes if it contains a comma or quote, per CSV rules.
   function escapeCsv(value) {
     if (value.indexOf(",") !== -1 || value.indexOf('"') !== -1) {
@@ -272,9 +310,28 @@ Add this referral to the CSV? [Y/n]: y</code></pre>
     var values = [];
     for (var i = 0; i < 9; i++) {
       var raw = document.getElementById("f" + i).value;
-      // The first field is the name, which is only tidied, not expanded.
-      values.push(i === 0 ? tidyName(raw) : cleanText(raw));
+      if (i === 0) {
+        // The first field is the name, only tidied, not expanded.
+        values.push(tidyName(raw));
+      } else if (i === 2) {
+        // Duration guardrail: must be a whole number from 1 to 100.
+        var n = parseInt(raw, 10);
+        if (isNaN(n) || n < 1 || n > 100) {
+          values.push("");
+        } else {
+          values.push(String(n));
+        }
+      } else if (i === 4) {
+        // Medications get general cleaning then drug-name expansion.
+        values.push(expandMeds(cleanText(raw)));
+      } else {
+        values.push(cleanText(raw));
+      }
     }
+
+    // Warn if the duration was entered but rejected by the guardrail.
+    var durationRaw = document.getElementById("f2").value.trim();
+    var durationWarn = (durationRaw !== "" && values[2] === "");
 
     // Find which fields were left blank so we can warn about them.
     var missing = [];
@@ -289,8 +346,13 @@ Add this referral to the CSV? [Y/n]: y</code></pre>
     fill.textContent = score + "%";
 
     var note = document.getElementById("missingNote");
-    note.textContent = missing.length === 0 ? "All required fields present." : "Missing: " + missing.join(", ");
-    note.style.color = missing.length === 0 ? "#1b998b" : "#e76f51";
+    if (durationWarn) {
+      note.textContent = "Duration must be a whole number from 1 to 100 days. That entry was rejected.";
+      note.style.color = "#e76f51";
+    } else {
+      note.textContent = missing.length === 0 ? "All required fields present." : "Missing: " + missing.join(", ");
+      note.style.color = missing.length === 0 ? "#1b998b" : "#e76f51";
+    }
 
     var row = values.map(escapeCsv).join(",");
     document.getElementById("csvOut").textContent = HEADERS.join(",") + "\n" + row;

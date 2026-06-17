@@ -1,6 +1,6 @@
 # ReferralPrep CI/CD pipeline
-# Builds native binaries for Linux, macOS, and Windows on every push to main,
-# then publishes them as a public GitHub Release anyone can download.
+# Builds native binaries for Linux, macOS (Apple Silicon), and Windows on every
+# push to main, then publishes them as a public GitHub Release anyone can download.
 
 name: Build and release binaries
 
@@ -16,6 +16,8 @@ jobs:
   build:
     name: Build ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
+    # Do not let one slow runner hang the whole pipeline for 24 hours.
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
@@ -33,13 +35,6 @@ jobs:
             target: aarch64-apple-darwin
             label: macos-arm64
             artifact: referralprep-macos-arm64
-            binary: referralprep
-
-          # macOS Intel
-          - os: macos-13
-            target: x86_64-apple-darwin
-            label: macos-x86_64
-            artifact: referralprep-macos-x86_64
             binary: referralprep
 
           # Windows 64-bit
@@ -79,6 +74,8 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
+    # Publish even if one build was skipped or failed, as long as some succeeded.
+    if: always()
     runs-on: ubuntu-latest
 
     steps:
