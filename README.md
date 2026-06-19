@@ -21,7 +21,8 @@ There are three downloads, one per system. Pick the file that matches your compu
 |---|---|
 | Windows | `referralprep-windows-x86_64.exe` |
 | Mac (Apple Silicon: M1, M2, M3) | `referralprep-macos-arm64` |
-| Linux | `referralprep-linux-x86_64` |
+| Linux (Intel/AMD 64-bit) | `referralprep-linux-x86_64` |
+| Linux (ARM 64-bit, aarch64) | `referralprep-linux-aarch64` |
 
 Get them from the [website](https://NamazziJosephine.github.io/referralprep) or the [Releases page](../../releases/latest).
 
@@ -48,7 +49,7 @@ If Windows shows a blue "Windows protected your PC" box, click "More info" then 
 2. Open the Terminal app.
 3. Mark the file as runnable (a one-time step), then run it. Use whichever file name you downloaded:
 
-On Linux:
+On Linux, pick the file matching your processor (most laptops and desktops are x86_64; ARM servers and some devices are aarch64):
 
 ```bash
 cd ~/Downloads
